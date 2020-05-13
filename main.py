@@ -1,6 +1,7 @@
 import random
 import threading
 import time
+from scipy.stats import skewnorm
 
 games = []
 queue = []
@@ -12,10 +13,12 @@ class Party:
         _self.player_stat = []
         _self.avg_mmr = 0
         _self.avg_exp = 0
+
         if(dist == "uniform"):
-            _self.party_size = 1 #FIXME!
+            _self.party_size = random.randrange(1, 6) #FIXME
         elif(dist == "skew"):
-            _self.party_size = random.randrange(1, 6) #FIXME!
+            _self.party_size = random.randrange(1, 6)
+
         for i in range(0, _self.party_size):
             _self.player_stat.append(Player(dist))
             _self.avg_mmr += _self.player_stat[i].mmr
@@ -28,11 +31,11 @@ class Party:
 class Player:
     def __init__(_self, dist):
         if(dist == "uniform"):
-            _self.mmr = random.randrange(1, 1000) #FIXME!
-            _self.exp = random.randrange(1, 100000) #FIXME!
+            _self.mmr = random.randrange(1, 3000) #assume highest MMR is 3000
+            _self.exp = random.randrange(1, 30000) #highest playtime is 27000 games (http://ifi.gg/leaderboards)
         elif(dist == "skew"):
-            _self.mmr = random.randrange(1, 1000) #FIXME!
-            _self.exp = random.randrange(1, 100000) #FIXME!
+            _self.mmr = skewnorm.rvs(5, 1000, 500, 1)#FIXME: don't know this is correct distribution
+            _self.exp = skewnorm.rvs(100, 10, 8000, 1)#FIXME: don't know this is correct distribution
 
 def generation(period, dist):
     global queue
@@ -55,7 +58,7 @@ def remove_novice(candidate, novice):
 
     return i 
 
-def make_matches(candidate, games):
+def normal_sorting(candidate, games):
     mmr_sorted = candidate[0:len(candidate)]
     mmr_sorted.sort(key=lambda x: x.avg_mmr)
 
@@ -67,20 +70,40 @@ def make_matches(candidate, games):
     for i in range(0, 10*num_game):
         candidate.remove(mmr_sorted[i])
 
+def clustering(candidiate, games):
+    '''
+
+    implement here
+    
+
+    '''
+
+def make_matches(func, candidate, games):
+    if(func=="normal_sorting"):
+        normal_sorting(candidate, games)
+    elif(func=="clustering"):
+        clustering(candidate, games)
+    '''
+    add some functions
+
+    '''
+
+
 def matchmaking(execution_time):
     global queue
     global games
     global novice
     start_ts = time.time()
+    func="normal_sorting"
 
     while(time.time() - start_ts < execution_time):
-        if(len(novice) >= 10):
-            make_matches(novice, games)
+        #if(len(novice) >= 10):
+        #    make_matches(novice, games)
         if(len(queue) >= search_window):
             candidate = queue[0:search_window]
             del queue[0:search_window]
-            remove_novice(candidate, novice)
-            make_matches(candidate, games)
+            #remove_novice(candidate, novice)
+            make_matches(func, candidate, games)
             queue = candidate + queue
     
 
