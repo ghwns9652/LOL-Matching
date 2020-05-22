@@ -1,7 +1,9 @@
 import random
 import threading
 import time
+import hdbscan
 from scipy.stats import skewnorm
+from sklearn.cluster import DBSCAN
 
 games = []
 queue = []
@@ -18,7 +20,6 @@ class Party:
             _self.party_size = random.randrange(1, 6) #FIXME
         elif(dist == "skew"):
             _self.party_size = random.randrange(1, 6)
-
         for i in range(0, _self.party_size):
             _self.player_stat.append(Player(dist))
             _self.avg_mmr += _self.player_stat[i].mmr
@@ -70,13 +71,20 @@ def normal_sorting(candidate, games):
     for i in range(0, 10*num_game):
         candidate.remove(mmr_sorted[i])
 
-def clustering(candidiate, games):
-    '''
-
-    implement here
+def clustering(candidate, games):
     
-
     '''
+        
+        (candidate = array of waiting parties , games = parties which start games)
+
+        1.convert candidate into the matrix shape of (len(candiate),num_features); features = (gen_time,avg_mmr)
+        2.clustering = hdbscan.HDBSCAN(min_cluster_size=10).fit(matrix)
+        3.sorting same labeling
+        4.1,2,3 again
+    
+    '''
+    cluster_obj = hdbscan.HDBSCAN(min_cluster_size=10)
+
 
 def make_matches(func, candidate, games):
     if(func=="normal_sorting"):
@@ -95,6 +103,7 @@ def matchmaking(execution_time):
     global novice
     start_ts = time.time()
     func="normal_sorting"
+    
 
     while(time.time() - start_ts < execution_time):
         #if(len(novice) >= 10):
@@ -109,13 +118,13 @@ def matchmaking(execution_time):
 
 def main():
     t0 = threading.Thread(target=generation, args=(10000, "uniform"))
-    t1 = threading.Thread(target=matchmaking, args=[20])
+    t1 = threading.Thread(target=matchmaking, args=[3])
     t0.start()
     t1.start()
 
 
 main()
-time.sleep(20)
+time.sleep(3)
 
 print(len(games))
 print(games[0][0].avg_mmr)
