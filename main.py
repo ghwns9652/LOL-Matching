@@ -8,7 +8,7 @@ from sklearn.cluster import DBSCAN
 games = []
 queue = []
 novice = []
-search_window = 100
+search_window = 400
 
 class Party:
     def __init__(_self, dist):
@@ -57,9 +57,6 @@ def games_match(candidate):
     #sort multiqueue by mmr
     for _ in user_multiqueue:
         queue.sort(key=lambda x: x.avg_mmr)
-    
-
-
 
 # move unexperience noobies to novice list
 # return length of the list
@@ -121,6 +118,7 @@ def clustering(candidate, games):
         else: 
             #add party with same label into game groups
             clustered_candidate[label].append(party)
+    
     '''
     #game_matching start
     deleted_party = [] #otherwise defined, remove error
@@ -135,6 +133,7 @@ def clustering(candidate, games):
         candidate.remove(party)
     '''
 
+    
     #############################################################################
     #game_matching start
     deleted_party = [] #otherwise defined, remove error
@@ -150,7 +149,7 @@ def clustering(candidate, games):
         # by the number of position
         for user_group in same_labeled_group:
         # O(same_labeled_group)
-            idx_player = len(user_group.player_stat)
+            idx_player = user_group.party_size
             idx_position = user_group.position
             multiqueue_players[idx_player].append(user_group)
             multiqueue_position[idx_position].append(user_group)
@@ -164,7 +163,7 @@ def clustering(candidate, games):
         not_team = []
         for party in same_labeled_group:
         # O(same_labeled_group)
-            num = len(party.player_stat)
+            num = len(party.party_size)
             idx = 0b11111^party.position
             # [5]
             if party.position == 0b11111:
@@ -192,12 +191,13 @@ def clustering(candidate, games):
                     if len(same_pos_party_list) != 0:
                         for party in same_pos_party_list:
                             pick.append(party)
+                
                 for i in range(len(pick)):
                     for j in range(len(pick[i:])):
                         #make pairs
-                        if pick[i].position & pick.position[i+j] == 0b00000:
+                        if pick[i].position & pick[i+j].position == 0b00000:
                             #check
-                            idx = pick[i].position | pick.position[i+j]
+                            idx = pick[i].position | pick[i+j].position
                             if len(multiqueue_position[idx])>0:
                                 full_team.append([pick[i],pick[i+j],multiqueue_position[idx][0]])
                                 deleted_party.append(pick[i])   #deleted outer loop
@@ -207,14 +207,17 @@ def clustering(candidate, games):
                             pass
 
     for party in deleted_party:
-        candidate.remove(party)
+        if party in candidate:
+            candidate.remove(party)
     #############################################################################
+    
 
 def make_matches(func, candidate, games):
     if(func=="normal_sorting"):
         normal_sorting(candidate, games)
     elif(func=="clustering"):
         clustering(candidate, games)
+
     '''
     add some functions
     '''
@@ -224,7 +227,7 @@ def matchmaking(execution_time):
     global games
     global novice
     start_ts = time.time()
-    func="clustering"
+    func = "clustering"
     
 
     while(time.time() - start_ts < execution_time):
@@ -244,11 +247,11 @@ def main():
     t0.start()
     t1.start()
 
-
-main()
+generation(10000,"uniform")
+matchmaking(3)
 time.sleep(3)
 
 print(len(games))
-print(games[0][0].avg_mmr)
-print(games[0][0].avg_exp)
-print(games[0][0].gentime)
+#print(games[0][0].avg_mmr)
+#print(games[0][0].avg_exp)
+#print(games[0][0].gentime)
