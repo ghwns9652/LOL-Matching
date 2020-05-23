@@ -34,7 +34,7 @@ class Party:
 
 
 class Player:
-    def __init__(_self, dist, position):
+    def __init__(_self, dist):
         if(dist == "uniform"):
             _self.mmr = random.randrange(1, 3000) #assume highest MMR is 3000
             _self.exp = random.randrange(1, 30000) #highest playtime is 27000 games (http://ifi.gg/leaderboards)
