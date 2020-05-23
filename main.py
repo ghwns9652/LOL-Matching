@@ -6,7 +6,7 @@ from scipy.stats import skewnorm
 games = []
 queue = []
 novice = []
-search_window = 50
+search_window = 200
 
 class Party:
     def __init__(_self, dist):
@@ -30,8 +30,6 @@ class Party:
         _self.avg_mmr /= _self.party_size
         _self.avg_exp /= _self.party_size
         _self.gentime = time.time()
-
-
 
 class Player:
     def __init__(_self, dist):
@@ -63,8 +61,11 @@ def remove_novice(candidate, novice):
 
     return i 
 
+def mq_sorting(candidate, games):
+    
+
 def normal_sorting(candidate, games):
-    mmr_sorted = candidate[0:len(candidate)]
+    mmr_sorted = candidate[0:]
     mmr_sorted.sort(key=lambda x: x.avg_mmr)
 
     #num_game = len(mmr_sorted)//10
