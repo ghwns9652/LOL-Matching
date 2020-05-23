@@ -13,11 +13,15 @@ class Party:
         _self.player_stat = []
         _self.avg_mmr = 0
         _self.avg_exp = 0
+        _self.position = [0, 0, 0, 0, 0] #[Top, Mid, Bottom, Jungle, Support]
 
         if(dist == "uniform"):
             _self.party_size = random.randrange(1, 6) #FIXME
         elif(dist == "skew"):
             _self.party_size = random.randrange(1, 6)
+        
+        for i in random.sample(range(0, 5), _self.party_size):
+            _self.position[i] = 1
 
         for i in range(0, _self.party_size):
             _self.player_stat.append(Player(dist))
@@ -28,8 +32,9 @@ class Party:
         _self.gentime = time.time()
 
 
+
 class Player:
-    def __init__(_self, dist):
+    def __init__(_self, dist, position):
         if(dist == "uniform"):
             _self.mmr = random.randrange(1, 3000) #assume highest MMR is 3000
             _self.exp = random.randrange(1, 30000) #highest playtime is 27000 games (http://ifi.gg/leaderboards)
