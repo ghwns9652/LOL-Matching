@@ -15,15 +15,15 @@ class Party:
         _self.player_stat = []
         _self.avg_mmr = 0
         _self.avg_exp = 0
-        _self.position = [0, 0, 0, 0, 0] #[Top, Mid, Bottom, Jungle, Support]
+        _self.position = 0b00000 #[Top, Mid, Bottom, Jungle, Support]
 
         if(dist == "uniform"):
             _self.party_size = random.randrange(1, 6) #FIXME
         elif(dist == "skew"):
             _self.party_size = random.randrange(1, 6)
         
-        for i in random.sample(range(0, 5), _self.party_size):
-            _self.position[i] = 1
+        for i in random.sample([0,1,2,3,4], _self.party_size):
+            _self.position |= 0b00001<<i
 
         for i in range(0, _self.party_size):
             _self.player_stat.append(Player(dist))
@@ -32,8 +32,6 @@ class Party:
         _self.avg_mmr /= _self.party_size
         _self.avg_exp /= _self.party_size
         _self.gentime = time.time()
-
-
 
 class Player:
     def __init__(_self, dist):
@@ -48,6 +46,20 @@ def generation(period, dist):
     global queue
     for i in range(1, period):
         queue.append(Party(dist))
+
+#get party list and make games_match considering position & the number of players
+def games_match(candidate):
+    #divide candidate by the number of players
+    user_multiqueue = [[] for _ in range(5)] #user_muliqueue[0] : user_solo
+    for user_group in candidate:
+        idx = user_group.position.count(1) - 1
+        user_multiqueue[idx].append(user_group)
+    #sort multiqueue by mmr
+    for _ in user_multiqueue:
+        queue.sort(key=lambda x: x.avg_mmr)
+    
+
+
 
 # move unexperience noobies to novice list
 # return length of the list
@@ -67,7 +79,7 @@ def remove_novice(candidate, novice):
 
 def normal_sorting(candidate, games):
     mmr_sorted = candidate[0:len(candidate)]
-    mmr_sorted.sort(key=lambda x: x.avg_mmr)
+    mmr_sorted.sort(key=lambda x: x.avg_mmr,reverse=True)
 
     #num_game = len(mmr_sorted)//10
     size_a, size_b = 0, 0
@@ -107,13 +119,12 @@ def clustering(candidate, games):
         if(label==-1): #noise party
             noise_candidate.append(party)
         else: 
-            if not party in candidate:
-                print("no")
+            #add party with same label into game groups
             clustered_candidate[label].append(party)
-    
-    #add party with same label into game groups
+    '''
+    #game_matching start
     deleted_party = [] #otherwise defined, remove error
-    for same_labeled_group in clustered_candidate:
+    for same_labeled_group in clustered_candidate: # -> O(n)
         iter = len(same_labeled_group)//10
         for i in range(iter):
             games.append(same_labeled_group[10*i:10*(i+1)])
@@ -122,6 +133,82 @@ def clustering(candidate, games):
 
     for party in deleted_party:
         candidate.remove(party)
+    '''
+
+    #############################################################################
+    #game_matching start
+    deleted_party = [] #otherwise defined, remove error
+    # O(n)
+    for same_labeled_group in clustered_candidate: 
+        #maintain two datastructure : same_labeled_group, multiqueue_player (by players), multiqueue_poisition (by position)
+        same_labeled_group.sort(key=lambda x: x.gentime,reverse=True)
+        multiqueue_players = [[] for _ in range(5+1)] #muliqueue_player[1] ~ multiqueue_player[5]
+        multiqueue_position = [[] for _ in range(0b11111+1)] #multiqueue_poistion[0b00001] ~ multiqueue_poistion[0b11111]
+
+        # divide same labeled parties 
+        # by the number of players
+        # by the number of position
+        for user_group in same_labeled_group:
+        # O(same_labeled_group)
+            idx_player = len(user_group.player_stat)
+            idx_position = user_group.position
+            multiqueue_players[idx_player].append(user_group)
+            multiqueue_position[idx_position].append(user_group)
+
+        # match making
+        full_team = []
+        # 1 or 2 or 3
+        try_team = [[] for _ in range(0b11111+1)] #multiqueue_poistion[0b00001] ~ multiqueue_poistion[0b11111]
+        try_team_num = 0
+        # 4
+        not_team = []
+        for party in same_labeled_group:
+        # O(same_labeled_group)
+            num = len(party.player_stat)
+            idx = 0b11111^party.position
+            # [5]
+            if party.position == 0b11111:
+                full_team.append(party)
+            
+            # [1,4] [2,3] pair exists
+            elif len(multiqueue_position[idx])>0:
+                full_team.append([party,multiqueue_position[idx][0]])
+                deleted_party.append(party) #deleted outer loop
+                deleted_party.append(multiqueue_position[idx][0]) #deleted outer loop
+                del multiqueue_position[idx][0] #delete
+            
+            else: # pair doesnt exists
+                if num==4:
+                    not_team.append(party)
+                else:
+                    try_team[party.position].append(party)
+                    try_team_num += 1
+
+            # make new pair
+            # they are 1 or 2 or 3 and they has no exact partner
+            if try_team_num >= 2: # at least one pair can be made
+                pick = []           # O(try_team_num)
+                for same_pos_party_list in try_team: 
+                    if len(same_pos_party_list) != 0:
+                        for party in same_pos_party_list:
+                            pick.append(party)
+                for i in range(len(pick)):
+                    for j in range(len(pick[i:])):
+                        #make pairs
+                        if pick[i].position & pick.position[i+j] == 0b00000:
+                            #check
+                            idx = pick[i].position | pick.position[i+j]
+                            if len(multiqueue_position[idx])>0:
+                                full_team.append([pick[i],pick[i+j],multiqueue_position[idx][0]])
+                                deleted_party.append(pick[i])   #deleted outer loop
+                                deleted_party.append(pick[i+j]) #deleted outer loop
+                                del multiqueue_position[idx][0] #delete
+                        else:
+                            pass
+
+    for party in deleted_party:
+        candidate.remove(party)
+    #############################################################################
 
 def make_matches(func, candidate, games):
     if(func=="normal_sorting"):
@@ -130,9 +217,7 @@ def make_matches(func, candidate, games):
         clustering(candidate, games)
     '''
     add some functions
-
     '''
-
 
 def matchmaking(execution_time):
     global queue
@@ -164,6 +249,6 @@ main()
 time.sleep(3)
 
 print(len(games))
-print(games[0][0][0].avg_mmr)
-print(games[0][0][0].avg_exp)
-print(games[0][0][0].gentime)
+print(games[0][0].avg_mmr)
+print(games[0][0].avg_exp)
+print(games[0][0].gentime)
