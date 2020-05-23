@@ -62,13 +62,26 @@ def normal_sorting(candidate, games):
     mmr_sorted = candidate[0:len(candidate)]
     mmr_sorted.sort(key=lambda x: x.avg_mmr)
 
-    num_game = len(mmr_sorted)//10
-    for i in range(0, num_game):
+    #num_game = len(mmr_sorted)//10
+    size_a, size_b = 0, 0
+    team_a, team_b = [], []
+    for i in mmr_sorted:
         # FIXME: deviation of mmr can be not good, starvation for high mmr gamer
-        games.append(mmr_sorted[10*i:10*(i+1)]) 
-    
-    for i in range(0, 10*num_game):
-        candidate.remove(mmr_sorted[i])
+        if(i.party_size <= 5-size_a):
+            team_a.append(i)
+            size_a += i.party_size
+        elif(i.party_size <= 5-size_b):
+            team_b.append(i)
+            size_b += i.party_size
+
+        if(size_a == 5 and size_b == 5):
+            games.append([team_a[0:], team_b[0:]]) 
+            for j in team_a:
+                candidate.remove(j)
+            for j in team_b:
+                candidate.remove(j)
+            size_a, size_b = 0, 0
+            team_a, team_b = [], []
 
 def clustering(candidiate, games):
     '''
@@ -118,6 +131,6 @@ main()
 time.sleep(20)
 
 print(len(games))
-print(games[0][0].avg_mmr)
-print(games[0][0].avg_exp)
-print(games[0][0].gentime)
+print(games[0][0][0].avg_mmr)
+print(games[0][0][0].avg_exp)
+print(games[0][0][0].gentime)
