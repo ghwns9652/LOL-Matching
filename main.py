@@ -8,7 +8,7 @@ from sklearn.cluster import DBSCAN
 games = []
 queue = []
 novice = []
-search_window = 50
+search_window = 100
 
 class Party:
     def __init__(_self, dist):
@@ -72,19 +72,37 @@ def normal_sorting(candidate, games):
         candidate.remove(mmr_sorted[i])
 
 def clustering(candidate, games):
+  
+    #reconfigure party queue for clustering by gentime,avg_mmr
+    candidate_feature_arr = []
+    for party in candidate:
+        candidate_feature_arr.append([party.gentime,party.avg_mmr])
     
-    '''
-        
-        (candidate = array of waiting parties , games = parties which start games)
-
-        1.convert candidate into the matrix shape of (len(candiate),num_features); features = (gen_time,avg_mmr)
-        2.clustering = hdbscan.HDBSCAN(min_cluster_size=10).fit(matrix)
-        3.sorting same labeling
-        4.1,2,3 again
+    #clustering start, min_cluster_size is 10 parties
+    candidate_labeled = hdbscan.HDBSCAN(min_cluster_size=10).fit_predict(candidate_feature_arr)
     
-    '''
-    cluster_obj = hdbscan.HDBSCAN(min_cluster_size=10)
+    #classify clustered_queue into same array with same label (0, ...... , max(queue_labeled))
+    clustered_candidate = [[] for _ in range(max(candidate_labeled)+1)]
+    noise_candidate = [] #TO DO
+    for party,label in zip(candidate,candidate_labeled):
+        if(label==-1): #noise party
+            noise_candidate.append(party)
+        else: 
+            if not party in candidate:
+                print("no")
+            clustered_candidate[label].append(party)
+    
+    #add party with same label into game groups
+    deleted_party = [] #otherwise defined, remove error
+    for same_labeled_group in clustered_candidate:
+        iter = len(same_labeled_group)//10
+        for i in range(iter):
+            games.append(same_labeled_group[10*i:10*(i+1)])
+            for party in same_labeled_group[10*i:10*(i+1)]:
+                deleted_party.append(party)              
 
+    for party in deleted_party:
+        candidate.remove(party)
 
 def make_matches(func, candidate, games):
     if(func=="normal_sorting"):
@@ -102,7 +120,7 @@ def matchmaking(execution_time):
     global games
     global novice
     start_ts = time.time()
-    func="normal_sorting"
+    func="clustering"
     
 
     while(time.time() - start_ts < execution_time):
