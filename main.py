@@ -99,10 +99,7 @@ def normal_sorting(candidate, games):
             size_a, size_b = 0, 0
             team_a, team_b = [], []
 
-count = 0
 def clustering(candidate, games):
-    global count
-
     def makenewparty(party_list):
         OR_2b = party_list[0].position
         SUM_2b = party_list[0].position
@@ -134,16 +131,12 @@ def clustering(candidate, games):
     #game_matching start
     deleted_party = [] #otherwise defined, remove error
     for same_labeled_group in clustered_candidate: 
-        #maintain two datastructure : same_labeled_group, multiqueue_player (by players), multiqueue_poisition (by position)
+        #maintain two datastructure : same_labeled_group multiqueue_poisition (by position)
         same_labeled_group.sort(key=lambda x: x.gentime,reverse=True)
         multiqueue_position = [[] for _ in range(0b11111+1)] #multiqueue_poistion[0b00001] ~ multiqueue_poistion[0b11111]
 
-        # divide same labeled parties 
-        # by the number of players
-        # by the number of position
+        # divide same labeled parties by the number of position
         for user_group in same_labeled_group:
-        # O(same_labeled_group)
-            idx_player = user_group.party_size
             idx_position = user_group.position
             multiqueue_position[idx_position].append(user_group)
 
@@ -152,13 +145,10 @@ def clustering(candidate, games):
         # 1 or 2 or 3
         try_team_1 = []
         try_team_2 = []
-        try_team_3 = []
         try_team_num = 0
-        # 4
-        not_team = []
-        
+
+
         for party in same_labeled_group:
-            #pairs are made 
             if party not in multiqueue_position[party.position]:
                 continue
 
@@ -167,12 +157,19 @@ def clustering(candidate, games):
             idx = 0b11111^party.position
             # [5]
             if party.position == 0b11111:
+                deleted_party.append(party)
                 full_team.append(party)
+                if len(full_team) >= 2:
+                    games.append([full_team[0],full_team[1]])
+                    del full_team[0:2]
                 multiqueue_position[party.position].remove(party) #delete
             
             # [1,4] [2,3] pair exists
             elif len(multiqueue_position[idx])>0:
                 full_team.append([party,multiqueue_position[idx][0]])
+                if len(full_team) >= 2:
+                    games.append([full_team[0],full_team[1]])
+                    del full_team[0:2]
                 deleted_party.append(party) #delete in candidate at outer loop
                 deleted_party.append(multiqueue_position[idx][0]) #delete in candidate at outer loop
                 del multiqueue_position[idx][0] #delete
@@ -180,15 +177,14 @@ def clustering(candidate, games):
 
             else: # pair doesnt exists
                 if num==4:
-                    not_team.append(party)
-                elif num == 3:
-                    try_team_3.append(party)
-                    try_team_num += 1
+                    multiqueue_position[party.position].remove(party) #delete
                 elif num == 2:
                     try_team_2.append(party)
+                    multiqueue_position[party.position].remove(party) #delete
                     try_team_num += 1
                 elif num == 1:
                     try_team_1.append(party)
+                    multiqueue_position[party.position].remove(party) #delete
                     try_team_num += 1
                 
 
@@ -197,18 +193,12 @@ def clustering(candidate, games):
                 try_team_1.sort(key=lambda x: x.gentime,reverse=True)
                 try_team_2.sort(key=lambda x: x.gentime,reverse=True)
                 for solo in try_team_1:
-                    if solo not in multiqueue_position[solo.position]:
-                        continue
                     OR_2b = solo.position
                     SUM_2b = solo.position
 
                     for duo in try_team_2:
-                        if duo not in multiqueue_position[duo.position]:
-                            continue
                         OR_2b |= duo.position
                     for duo in try_team_2:
-                        if duo not in multiqueue_position[duo.position]:
-                            continue
                         SUM_2b |= duo.position
 
                     if OR_2b == SUM_2b:
@@ -217,6 +207,9 @@ def clustering(candidate, games):
                         if len(multiqueue_position[idx])>0:
                             makepair = True
                             full_team.append([solo,duo,multiqueue_position[idx][0]])
+                            if len(full_team) >= 2:
+                                games.append([full_team[0],full_team[1]])
+                                del full_team[0:2]
                             try_team_num -= 2
                             deleted_party.append(solo)
                             deleted_party.append(duo)
@@ -226,23 +219,18 @@ def clustering(candidate, games):
                             del multiqueue_position[idx][0] #delete
             
             #(1,1,1,1)
-            if len(try_team_1) >= 4 :
+            elif len(try_team_1) >= 4 :
                 for solo_1 in try_team_1:
-                    if solo_1 not in multiqueue_position[solo_1.position]:
-                        continue
                     for solo_2 in try_team_1:
-                        if solo_2 not in multiqueue_position[solo_2.position]:
-                            continue
                         for solo_3 in try_team_1:
-                            if solo_3 not in multiqueue_position[solo_3.position]:
-                                continue
                             for solo_4 in try_team_1:
-                                if solo_4 not in multiqueue_position[solo_4.position]:
-                                    continue
                                 if makenewparty([solo_1,solo_2,solo_3,solo_4]) == True:
                                     idx = 0b11111^(solo_1.position | solo_2.position | solo_3.position | solo_4.position)
                                     if len(multiqueue_position[idx])>0:    
                                         full_team.append([solo_1,solo_2,solo_3,solo_4,multiqueue_position[idx][0]])
+                                        if len(full_team) >= 2:
+                                            games.append([full_team[0],full_team[1]])
+                                            del full_team[0:2]                                        
                                         try_team_num -= 4
                                         try_team_1.remove(solo_1)
                                         try_team_1.remove(solo_2)
@@ -253,26 +241,19 @@ def clustering(candidate, games):
                                         deleted_party.append(solo_3)
                                         deleted_party.append(solo_4)
                                         deleted_party.append(multiqueue_position[idx][0])
-                                        multiqueue_position[solo_1.position].remove(solo_1)
-                                        multiqueue_position[solo_2.position].remove(solo_2)
-                                        multiqueue_position[solo_3.position].remove(solo_3)
-                                        multiqueue_position[solo_4.position].remove(solo_4)
                                         del multiqueue_position[idx][0] #delete
             #(1,1,1)
-            if len(try_team_1) >= 3 :
+            elif len(try_team_1) >= 3 :
                 for solo_1 in try_team_1:
-                    if solo_1 not in multiqueue_position[solo_1.position]:
-                                continue
                     for solo_2 in try_team_1:
-                        if solo_2 not in multiqueue_position[solo_2.position]:
-                                continue
                         for solo_3 in try_team_1:
-                            if solo_3 not in multiqueue_position[solo_3.position]:
-                                continue
                             if makenewparty([solo_1,solo_2,solo_3]) == True:
                                 idx = 0b11111^(solo_1.position | solo_2.position | solo_3.position)
                                 if len(multiqueue_position[idx])>0:    
                                     full_team.append([solo_1,solo_2,solo_3,multiqueue_position[idx][0]])
+                                    if len(full_team) >= 2:
+                                        games.append([full_team[0],full_team[1]])
+                                        del full_team[0:2]
                                     try_team_num -= 3
                                     try_team_1.remove(solo_1)
                                     try_team_1.remove(solo_2)
@@ -281,47 +262,31 @@ def clustering(candidate, games):
                                     deleted_party.append(solo_2)
                                     deleted_party.append(solo_3)
                                     deleted_party.append(multiqueue_position[idx][0])
-                                    multiqueue_position[solo_1.position].remove(solo_1)
-                                    multiqueue_position[solo_2.position].remove(solo_2)
-                                    multiqueue_position[solo_3.position].remove(solo_3)
                                     del multiqueue_position[idx][0] #delete
             #(1,1)
-            if len(try_team_1) >=2:
+            elif len(try_team_1) >=2:
                 for solo_1 in try_team_1:
-                    if solo_1 not in multiqueue_position[solo_1.position]:
-                                continue
                     for solo_2 in try_team_1:
-                        if solo_2 not in multiqueue_position[solo_2.position]:
-                                continue
                         if makenewparty([solo_1,solo_2]) == True:
                             idx = 0b11111^(solo_1.position | solo_2.position)
                             if len(multiqueue_position[idx])>0:    
                                 full_team.append([solo_1,solo_2,multiqueue_position[idx][0]])
+                                if len(full_team) >= 2:
+                                    games.append([full_team[0],full_team[1]])
+                                    del full_team[0:2]
+
                                 try_team_num -= 2
                                 try_team_1.remove(solo_1)
                                 try_team_1.remove(solo_2)
                                 deleted_party.append(solo_1)
                                 deleted_party.append(solo_2)
                                 deleted_party.append(multiqueue_position[idx][0])
-                                multiqueue_position[solo_1.position].remove(solo_1)
-                                multiqueue_position[solo_2.position].remove(solo_2)
                                 del multiqueue_position[idx][0] #delete
   
                 ###
-                     
-            if len(full_team) > 0 and len(full_team)%2 == 0:
-                for i in range(len(full_team)//2):
-                    games.append([full_team[2*i],full_team[2*i+1]])
-                    del full_team[0:2]
-                    #del full_team[0]
-        
-    
+            
     for party in deleted_party:
-        
-        if party in candidate:
             candidate.remove(party)
-        else:
-            count+=1
             
     #############################################################################
     
@@ -366,7 +331,6 @@ def main():
 
 generation(10000,"uniform")
 matchmaking(3)
-print(count)
 
 print(len(games))
 print(len(queue))
