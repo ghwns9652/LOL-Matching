@@ -1,6 +1,9 @@
 import random
 import threading
 import time
+import math
+import numpy as np
+import matplotlib.pyplot as plt
 from scipy.stats import skewnorm
 
 games = []
@@ -10,6 +13,7 @@ mqueue = [[]]*31
 search_window = 200
 insert_cnt = 0
 mmr_diff = 100
+matching_time = 30
 
 class Party:
     def __init__(_self, dist):
@@ -98,7 +102,8 @@ def mq_match_5(cur_queue, games):
     for i in range(0, pair_len):
         team_a.append(cur_queue[2*i])
         team_b.append(cur_queue[2*i+1])
-        games.append([team_a, team_b])
+        games.append([team_a, team_b, time.time()])
+        team_a, team_b = [], []
     del cur_queue[0:2*pair_len]
     
 def mq_match_234(queue0, queue1, games):
@@ -112,7 +117,7 @@ def mq_match_234(queue0, queue1, games):
         del queue1[q1_idx[1]]
         team_b = [queue0[2*i+1], queue1[q1_idx[0]]]
         del queue1[q1_idx[0]]
-        games.append([team_a, team_b])
+        games.append([team_a, team_b, time.time()])
     del queue0[0:2*pair_len]
 
 def mq_match_1(p0, p1, p2, p3, p4, games):
@@ -123,7 +128,7 @@ def mq_match_1(p0, p1, p2, p3, p4, games):
     for i in range(0, pair_len):
         team_a = [p0[2*i], p1[2*i+1], p2[2*i], p3[2*i+1], p4[2*i]]
         team_b = [p0[2*i+1], p1[2*i], p2[2*i+1], p3[2*i], p4[2*i+1]]
-        games.append([team_a, team_b])
+        games.append([team_a, team_b, time.time()])
     
     del p0[0:2*pair_len], p1[0:2*pair_len], p2[0:2*pair_len], p3[0:2*pair_len], p4[0:2*pair_len]
 
@@ -234,15 +239,39 @@ def matchmaking(execution_time):
 
 def main():
     t0 = threading.Thread(target=generation, args=(10000, "uniform", "mq"))
-    t1 = threading.Thread(target=matchmaking, args=[100])
+    t1 = threading.Thread(target=matchmaking, args=[matching_time])
     t0.start()
     t1.start()
 
+def analyze():
+    global games
+    duration = []
+    diff = []
+    mmr_a = 0
+    mmr_b = 0
+    for i in range(0, len(games)):
+        cur_game = games[i]
+        for j in range(0, len(cur_game[0])):
+            mmr_a += cur_game[0][j].party_size*cur_game[0][j].avg_mmr
+            duration.append(cur_game[2] - cur_game[0][j].gentime)
+        for j in range(0, len(cur_game[1])):
+            mmr_b += cur_game[1][j].party_size*cur_game[1][j].avg_mmr
+            duration.append(cur_game[2] - cur_game[1][j].gentime)
+        diff.append(abs(mmr_a - mmr_b)/5)
+        mmr_a, mmr_b = 0, 0
+    
+    counts, bins = np.histogram(np.array(diff), np.arange(10, 3020, 10))
+    hist = plt.hist(bins[:-1], bins, weights=counts) #range=(x0.min(), x0.max()), linewidth=1.2)
+    plt.show()
+
+    counts, bins = np.histogram(np.array(duration), np.arange(0, 0.5, 0.01))
+    hist = plt.hist(bins[:-1], bins, weights=counts) #range=(x0.min(), x0.max()), linewidth=1.2)
+    plt.show()
 
 main()
-time.sleep(100)
+time.sleep(matching_time)
 
+print("matched games")
 print(len(games))
-print(games[0][0][0].avg_mmr)
-print(games[0][0][0].avg_exp)
-print(games[0][0][0].gentime)
+
+analyze()
