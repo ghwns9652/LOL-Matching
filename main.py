@@ -1,3 +1,6 @@
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy
 import random
 import threading
 import time
@@ -5,6 +8,7 @@ import hdbscan
 from scipy.stats import skewnorm
 from sklearn.cluster import DBSCAN
 
+DEBUG_waittime = []
 games = []
 queue = []
 novice = []
@@ -32,6 +36,9 @@ class Party:
         _self.avg_mmr /= _self.party_size
         _self.avg_exp /= _self.party_size
         _self.gentime = time.time()
+        #Tracking party
+        _self.waitingtime = 0
+
 
 class Player:
     def __init__(_self, dist):
@@ -41,6 +48,7 @@ class Player:
         elif(dist == "skew"):
             _self.mmr = skewnorm.rvs(5, 1000, 500, 1)#FIXME: don't know this is correct distribution
             _self.exp = skewnorm.rvs(100, 10, 8000, 1)#FIXME: don't know this is correct distribution
+
 
 def generation(period, dist):
     global queue
@@ -98,6 +106,15 @@ def normal_sorting(candidate, games):
                 candidate.remove(j)
             size_a, size_b = 0, 0
             team_a, team_b = [], []
+
+def set_waitingtime(team1,team2):
+    global DEBUG_waittime
+    for party in team1:
+        party.waitingtime = time.time() - party.gentime
+        DEBUG_waittime.append(party.waitingtime)
+    for party in team2:
+        party.waitingtime = time.time() - party.gentime
+        DEBUG_waittime.append(party.waitingtime)
 
 def clustering(candidate, games):
     def makenewparty(party_list):
@@ -158,9 +175,10 @@ def clustering(candidate, games):
             # [5]
             if party.position == 0b11111:
                 deleted_party.append(party)
-                full_team.append(party)
+                full_team.append([party])
                 if len(full_team) >= 2:
                     games.append([full_team[0],full_team[1]])
+                    set_waitingtime(full_team[0],full_team[1])
                     del full_team[0:2]
                 multiqueue_position[party.position].remove(party) #delete
             
@@ -169,6 +187,7 @@ def clustering(candidate, games):
                 full_team.append([party,multiqueue_position[idx][0]])
                 if len(full_team) >= 2:
                     games.append([full_team[0],full_team[1]])
+                    set_waitingtime(full_team[0],full_team[1])
                     del full_team[0:2]
                 deleted_party.append(party) #delete in candidate at outer loop
                 deleted_party.append(multiqueue_position[idx][0]) #delete in candidate at outer loop
@@ -209,6 +228,7 @@ def clustering(candidate, games):
                             full_team.append([solo,duo,multiqueue_position[idx][0]])
                             if len(full_team) >= 2:
                                 games.append([full_team[0],full_team[1]])
+                                set_waitingtime(full_team[0],full_team[1])
                                 del full_team[0:2]
                             try_team_num -= 2
                             deleted_party.append(solo)
@@ -230,6 +250,7 @@ def clustering(candidate, games):
                                         full_team.append([solo_1,solo_2,solo_3,solo_4,multiqueue_position[idx][0]])
                                         if len(full_team) >= 2:
                                             games.append([full_team[0],full_team[1]])
+                                            set_waitingtime(full_team[0],full_team[1])
                                             del full_team[0:2]                                        
                                         try_team_num -= 4
                                         try_team_1.remove(solo_1)
@@ -253,6 +274,7 @@ def clustering(candidate, games):
                                     full_team.append([solo_1,solo_2,solo_3,multiqueue_position[idx][0]])
                                     if len(full_team) >= 2:
                                         games.append([full_team[0],full_team[1]])
+                                        set_waitingtime(full_team[0],full_team[1])
                                         del full_team[0:2]
                                     try_team_num -= 3
                                     try_team_1.remove(solo_1)
@@ -273,6 +295,7 @@ def clustering(candidate, games):
                                 full_team.append([solo_1,solo_2,multiqueue_position[idx][0]])
                                 if len(full_team) >= 2:
                                     games.append([full_team[0],full_team[1]])
+                                    set_waitingtime(full_team[0],full_team[1])
                                     del full_team[0:2]
 
                                 try_team_num -= 2
@@ -308,8 +331,6 @@ def matchmaking(execution_time):
     start_ts = time.time()
     func = "clustering"
 
-    
-
     while(time.time() - start_ts < execution_time):
         print(time.time() - start_ts)
 
@@ -329,11 +350,28 @@ def main():
     t0.start()
     t1.start()
 
-generation(10000,"uniform")
-matchmaking(3)
 
-print(len(games))
-print(len(queue))
-#print(games[0][0].avg_mmr)
-#print(games[0][0].avg_exp)
-#print(games[0][0].gentime)
+if __name__ == "__main__":
+    t0 = threading.Thread(target=generation, args=(10000, "uniform"))
+    t1 = threading.Thread(target=matchmaking, args=[3])
+    t0.start()
+    t1.start()
+    t0.join()
+    t1.join()
+
+    
+    
+
+    
+    print("\n\ntotal games: ",len(games))
+    print("match succuess: ",len(games)*2/len(queue)*100,"%")
+    print("waiting time avg: ", sum(DEBUG_waittime)/len(DEBUG_waittime))
+    sns.distplot(DEBUG_waittime,kde=False,rug=True)
+    plt.show(sns)
+    x = numpy.linspace(0,20,100)
+    plt.plot(x,numpy.sin(x))
+    plt.show()
+
+    
+
+    
