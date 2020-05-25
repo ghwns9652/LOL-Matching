@@ -5,6 +5,7 @@ import random
 import threading
 import time
 import hdbscan
+from scipy.integrate import trapz
 from scipy.stats import skewnorm
 from sklearn.cluster import DBSCAN
 
@@ -147,7 +148,9 @@ def clustering(candidate, games):
     
     #game_matching start
     deleted_party = [] #otherwise defined, remove error
+    same_group = 0
     for same_labeled_group in clustered_candidate: 
+        same_group += 1
         #maintain two datastructure : same_labeled_group multiqueue_poisition (by position)
         same_labeled_group.sort(key=lambda x: x.gentime,reverse=True)
         multiqueue_position = [[] for _ in range(0b11111+1)] #multiqueue_poistion[0b00001] ~ multiqueue_poistion[0b11111]
@@ -157,7 +160,7 @@ def clustering(candidate, games):
             idx_position = user_group.position
             multiqueue_position[idx_position].append(user_group)
 
-        # match making
+        # match making in only same_group
         full_team = []
         # 1 or 2 or 3
         try_team_1 = []
@@ -224,7 +227,6 @@ def clustering(candidate, games):
                         #check
                         idx = 0b11111^(OR_2b)
                         if len(multiqueue_position[idx])>0:
-                            makepair = True
                             full_team.append([solo,duo,multiqueue_position[idx][0]])
                             if len(full_team) >= 2:
                                 games.append([full_team[0],full_team[1]])
@@ -332,7 +334,7 @@ def matchmaking(execution_time):
     func = "clustering"
 
     while(time.time() - start_ts < execution_time):
-        print(time.time() - start_ts)
+        #print(time.time() - start_ts)
 
         #if(len(novice) >= 10):
         #    make_matches(novice, games)
@@ -352,26 +354,106 @@ def main():
 
 
 if __name__ == "__main__":
-    t0 = threading.Thread(target=generation, args=(10000, "uniform"))
-    t1 = threading.Thread(target=matchmaking, args=[3])
-    t0.start()
-    t1.start()
-    t0.join()
-    t1.join()
+    #global queue
+    #lobal games
+    #global DEBUG_waittime
+    #global DEBUG_delta_mmr
+    
+    itertaion = 50
+    total_games = []
+    total_queue = []
+    total_DEBUG_waittime = []
+    total_DEBUG_delta_mmr = []
+    total_games_party_num = []
+    total_success_ratio = []
+
+
+    for _ in range(itertaion):
+        DEBUG_delta_mmr = []
+        DEBUG_waittime = []
+        games = []
+        queue = []
+        
+        t0 = threading.Thread(target=generation, args=(10000, "uniform"))
+        t1 = threading.Thread(target=matchmaking, args=[2])
+        t0.start()
+        t1.start()
+        t0.join()
+        t1.join()
+
+        #match success ratio
+        total_party_num_game_start = 0
+        for team in games:
+            for party in team[0]:
+                total_party_num_game_start += 1
+            for party in team[1]:
+                total_party_num_game_start += 1
+        
+        #delta mmr
+        for team in games:
+            team0_sum_mmr = 0
+            team0_num = 0
+            team1_sum_mmr = 0
+            team1_num = 0
+            for party in team[0]:
+                team0_sum_mmr += party.party_size * party.avg_mmr
+                team0_num += party.party_size
+            for party in team[1]:
+                team1_sum_mmr += party.party_size * party.avg_mmr
+                team1_num += party.party_size
+            DEBUG_delta_mmr.append(abs(team0_sum_mmr/team0_num - team1_sum_mmr/team1_num))
+        
+        total_games.append(games)
+        total_queue.append(queue)
+        total_games_party_num.append(total_party_num_game_start)
+        total_DEBUG_delta_mmr.append(DEBUG_delta_mmr)
+        total_DEBUG_waittime.append(DEBUG_waittime)
+        total_success_ratio.append(sum(DEBUG_waittime)/len(DEBUG_waittime))
+        print("\n///////////// iteration", _+1 ,"/////////////")
+        print("total games: ",len(games))
+        print("match succuess ratio: ",total_party_num_game_start/len(queue)*100,"%")
+        print("waiting time avg: ", sum(DEBUG_waittime)/len(DEBUG_waittime))
+        print("delta mmr avg: ",sum(DEBUG_delta_mmr)/len(DEBUG_delta_mmr))
 
     
-    
+        '''
+        sns.distplot(DEBUG_waittime,hist=False,rug=True)
+        plt.title("waiting time distribution")
+        plt.show()
 
-    
-    print("\n\ntotal games: ",len(games))
-    print("match succuess: ",len(games)*2/len(queue)*100,"%")
-    print("waiting time avg: ", sum(DEBUG_waittime)/len(DEBUG_waittime))
-    sns.distplot(DEBUG_waittime,kde=False,rug=True)
-    plt.show(sns)
-    x = numpy.linspace(0,20,100)
-    plt.plot(x,numpy.sin(x))
+        sns.distplot(DEBUG_delta_mmr,hist=False,rug=True)
+        plt.title("delta mmr distribution")
+        plt.show()
+        '''
+
+    #summation
+    sum_delta_mmr = []
+    sum_waittime = []
+    for delta_mmr_iter in total_DEBUG_delta_mmr:
+        for mmr_val in delta_mmr_iter:
+            sum_delta_mmr.append(mmr_val)
+
+    for waittime_iter in total_DEBUG_waittime:
+        for wait_val in waittime_iter:
+            sum_waittime.append(wait_val)
+
+  
+
+
+    print("\n\navg success ratio: ",sum(sum_waittime)/len(sum_waittime)*100,"%")
+    sns.distplot(sum_waittime,hist=False,rug=True)
+    plt.title("waiting time summation distribution")
+    plt.show()
+
+    sns.distplot(sum_delta_mmr,hist=False,rug=True)
+    plt.title("delta mmr summation distribution")
+    plt.show()
+
+    sns.distplot(total_success_ratio,hist=False,rug=True)
+    plt.title("success ratio distribution")
     plt.show()
 
     
+
 
     
