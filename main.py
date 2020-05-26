@@ -4,16 +4,18 @@ import time
 import math
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 from scipy.stats import skewnorm
 
 games = []
 queue = []
 novice = []
+duration = []
 mqueue = [[]]*31
 search_window = 200
 insert_cnt = 0
 mmr_diff = 100
-matching_time = 30
+matching_time = 50
 
 class Party:
     def __init__(_self, dist):
@@ -238,14 +240,14 @@ def matchmaking(execution_time):
             mq_matchmaking(mqueue, insert_cnt)
 
 def main():
-    t0 = threading.Thread(target=generation, args=(10000, "uniform", "mq"))
+    t0 = threading.Thread(target=generation, args=(10000, "skew", "mq"))
     t1 = threading.Thread(target=matchmaking, args=[matching_time])
     t0.start()
     t1.start()
 
 def analyze():
     global games
-    duration = []
+    global duration
     diff = []
     mmr_a = 0
     mmr_b = 0
@@ -260,18 +262,34 @@ def analyze():
         diff.append(abs(mmr_a - mmr_b)/5)
         mmr_a, mmr_b = 0, 0
     
-    counts, bins = np.histogram(np.array(diff), np.arange(10, 3020, 10))
-    hist = plt.hist(bins[:-1], bins, weights=counts) #range=(x0.min(), x0.max()), linewidth=1.2)
-    plt.show()
+    #counts, bins = np.histogram(np.array(diff), np.arange(10, 1510, 10))
+    #hist = plt.hist(bins[:-1], bins, weights=counts, range=(0, 1500), linewidth=1.2)
+    #plt.show()
+    #plt.savefig('fig1.png', dpi=300)
 
-    counts, bins = np.histogram(np.array(duration), np.arange(0, 0.5, 0.01))
-    hist = plt.hist(bins[:-1], bins, weights=counts) #range=(x0.min(), x0.max()), linewidth=1.2)
-    plt.show()
+    #counts, bins = np.histogram(np.array(duration), np.arange(0, 0.5, 0.01))
+    #hist0 = plt.hist(bins[:-1], bins, weights=counts, range=(0, 50), linewidth=1.2)
+    #plt.savefig('fig2.png', dpi=300)
+    #plt.show()
+    
+    #print("\n\navg success ratio: ",sum(sum_waittime)/len(sum_waittime)*100,"%")
+    sns.distplot(diff,hist=False,rug=False)
+    plt.title("mmr difference distribution")
+    plt.savefig('fig3.png', dpi=300)
+
+    print(duration)
+    duration.append(2)
+    sns.distplot(duration,hist=False,rug=False)
+    plt.title("waiting time distribution")
+    plt.savefig('fig4.png', dpi=300)
 
 main()
 time.sleep(matching_time)
 
+analyze()
+
 print("matched games")
 print(len(games))
 
-analyze()
+print("matched parties")
+print(len(duration))
